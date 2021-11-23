@@ -217,5 +217,5 @@ $RECYCLE.BIN/
 
 ### User-specific stuff
 # Ignore compiled TypeScript files
-src/**/*.js
-src/**/*.map
+**/*.js
+**/*.map

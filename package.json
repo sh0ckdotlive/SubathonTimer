@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "npx tsc && node src/index.js",
+    "start": "npx tsc && node backend/src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "sh0ckR6",
