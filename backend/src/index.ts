@@ -38,6 +38,19 @@ app.post('/eventsub', jsonParser, (req, res) => {
     if (req.headers[MESSAGE_TYPE] === NOTIFICATION) {
         // Handle the message.
         switch (req.body.subscription.type) {
+            case "channel.cheer":
+                handleCheer(req.body);
+                break;
+            case "channel.subscription.message":
+            case "channel.subscribe":
+                handleSub(req.body);
+                break;
+            case "channel.channel_points_custom_reward_redemption.add":
+                handleReward(req.body);
+                break;
+            case "channel.follow":
+                handleFollow(req.body);
+                break;
             default:
                 console.log(`Unknown/unhandled subscription type: ${req.body.subscription.type}`);
                 break;
@@ -61,3 +74,23 @@ io.listen(8081);
 app.listen(8080, () => {
     console.log('HTTP server is listening on port 8080');
 });
+
+function handleCheer(body: any) {
+    console.log(`${body.event.user_login} just cheered ${body.event.bits}!`);
+}
+
+function handleFollow(body: any) {
+    console.log(`${body.event.user_login} just followed!`);
+}
+
+function handleSub(body: any) {
+    if (body.event.is_gift) {
+        console.log(`${body.event.user_login} has been gifted a sub!`);
+    } else {
+        console.log(`${body.event.user_login} just subscribed!`);
+    }
+}
+
+function handleReward(body: any) {
+    console.log(`${body.event.user_login} has redeemed a reward!`);
+}
