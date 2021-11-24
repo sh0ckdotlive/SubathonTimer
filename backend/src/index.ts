@@ -1,5 +1,10 @@
 import express = require('express');
 import bodyParser = require('body-parser');
+import { Server } from "socket.io";
+
+const io = new Server({
+
+})
 
 const app = express();
 const jsonParser = bodyParser.json();
@@ -13,6 +18,9 @@ const NOTIFICATION = 'notification';
 app.use(jsonParser);
 
 let handledMessageIds: string[] = [];
+
+let timer = 0;
+let timerRunning = false;
 
 app.post('/eventsub', jsonParser, (req, res) => {
     // We've already handled this message, we don't need to do it again.
@@ -40,6 +48,16 @@ app.post('/eventsub', jsonParser, (req, res) => {
     }
 });
 
+io.on('connection', client => {
+    console.log(`New client connected with id ${client.id}.`)
+    client.emit('timerInit', timer, timerRunning);
+
+    client.on('stopTimer', () => timerRunning = false)
+    client.on('resumeTimer', () => timerRunning = true)
+})
+
+io.listen(8081);
+
 app.listen(8080, () => {
-    console.log('Server is listening on port 8080');
+    console.log('HTTP server is listening on port 8080');
 });
