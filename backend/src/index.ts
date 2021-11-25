@@ -1,5 +1,11 @@
 import express = require('express');
 import bodyParser = require('body-parser');
+import {Server, Socket} from "socket.io";
+import { timer as timerSettings } from '../../settings.json' ;
+import {Client} from "socket.io/dist/client";
+import {DefaultEventsMap} from "socket.io/dist/typed-events";
+
+const io = new Server()
 
 const app = express();
 const jsonParser = bodyParser.json();
@@ -13,6 +19,13 @@ const NOTIFICATION = 'notification';
 app.use(jsonParser);
 
 let handledMessageIds: string[] = [];
+
+let timer = timerSettings.start;
+let totalTime = timerSettings.start;
+let timerRunning = false;
+let timerInterval: NodeJS.Timer;
+
+let connectedClients: Socket<DefaultEventsMap, DefaultEventsMap>[] = [];
 
 app.post('/eventsub', jsonParser, (req, res) => {
     // We've already handled this message, we don't need to do it again.
@@ -28,10 +41,19 @@ app.post('/eventsub', jsonParser, (req, res) => {
     }
 
     if (req.headers[MESSAGE_TYPE] === NOTIFICATION) {
+        // If we have no more time to add, don't handle any events.
+        if (totalTime === timerSettings.max) {
+            res.sendStatus(200);
+            return;
+        }
+
         // Handle the message.
         switch (req.body.subscription.type) {
             case "channel.cheer":
                 handleCheer(req.body);
+                break;
+            case "channel.subscription.gift":
+                handleGift(req.body);
                 break;
             case "channel.subscription.message":
             case "channel.subscribe":
@@ -53,26 +75,88 @@ app.post('/eventsub', jsonParser, (req, res) => {
     }
 });
 
+io.on('connection', client => {
+    connectedClients.push(client);
+    console.log(`New client connected with id ${client.id}.`)
+    client.emit('timerInit', timer, timerRunning);
+
+    client.on('stopTimer', () => {
+        if (timerRunning) {
+            clearInterval(timerInterval);
+            timerRunning = false;
+        }
+    })
+    client.on('resumeTimer', () => {
+        if (!timerRunning) {
+            timerInterval = setInterval(() => {
+                timer--;
+                if (timer === 0) {
+                    clearInterval(timerInterval);
+                    timerRunning = false;
+                    client.emit("timerEnd");
+                }
+            }, 1000);
+            timerRunning = true;
+        }
+    })
+    client.on('timeUpdate', (callback) => {
+        callback({
+            time: timer,
+            timerRunning: timerRunning
+        })
+    })
+})
+
+io.on("disconnect", client => {
+    connectedClients = connectedClients.filter(c => c.id !== client.id);
+    console.log(`Client with id ${client.id} disconnected.`)
+})
+
+io.listen(8081);
+
+app.listen(8080, () => {
+    console.log('HTTP server is listening on port 8080');
+});
+
 function handleCheer(body: any) {
     console.log(`${body.event.user_login} just cheered ${body.event.bits}!`);
+    addTime(body.event.bits * timerSettings.bits);
 }
 
 function handleFollow(body: any) {
     console.log(`${body.event.user_login} just followed!`);
+    addTime(timerSettings.follow);
+}
+
+function handleGift(body: any) {
+    let total = body.event.total;
+    console.log(`${body.event.user_login} gifted ${total} sub(s)!`);
+    // @ts-ignore
+    addTime(total >= 5 ? timerSettings.subs.gifted[body.event.tier] * total : timerSettings.subs[body.event.tier] );
 }
 
 function handleSub(body: any) {
-    if (body.event.is_gift) {
-        console.log(`${body.event.user_login} has been gifted a sub!`);
-    } else {
-        console.log(`${body.event.user_login} just subscribed!`);
-    }
+    console.log(body.event.is_gift ? `${body.event.user_login} has been gifted a subscription!` : `${body.event.user_login} just subscribed!`);
+    // @ts-ignore
+    addTime(body.event.is_gift ? 0 : timerSettings.subs[body.event.tier]);
 }
 
 function handleReward(body: any) {
     console.log(`${body.event.user_login} has redeemed a reward!`);
+
+    // @ts-ignore
+    addTime(timerSettings.rewards[body.event.reward.id])
 }
 
-app.listen(8080, () => {
-    console.log('Server is listening on port 8080');
-});
+function addTime(time: number) {
+    if (totalTime + time > timerSettings.max) {
+        timer += timerSettings.max - totalTime;
+        totalTime = timerSettings.max;
+        return;
+    }
+
+    timer += time;
+    totalTime += time;
+
+    connectedClients.forEach(c => c.emit('addTime', time));
+}
