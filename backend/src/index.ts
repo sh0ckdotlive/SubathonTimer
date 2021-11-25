@@ -4,8 +4,16 @@ import {Server, Socket} from "socket.io";
 import { timer as timerSettings } from '../../settings.json' ;
 import {Client} from "socket.io/dist/client";
 import {DefaultEventsMap} from "socket.io/dist/typed-events";
+import path from "path";
 
-const io = new Server()
+const io = new Server({
+    cors: {
+        origin: '*',
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+        preflightContinue: false,
+        optionsSuccessStatus: 204
+    }
+})
 
 const app = express();
 const jsonParser = bodyParser.json();
@@ -26,6 +34,8 @@ let timerRunning = false;
 let timerInterval: NodeJS.Timer;
 
 let connectedClients: Socket<DefaultEventsMap, DefaultEventsMap>[] = [];
+
+app.use('/', express.static(path.join(__dirname, '../../frontend')));
 
 app.post('/eventsub', jsonParser, (req, res) => {
     // We've already handled this message, we don't need to do it again.
