@@ -62,10 +62,9 @@
         transition-duration: 0.4s;
     }
     </style>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="socket.io.min.js"></script>
     <script>
-
-        const socket = io();
+        const socket = io("http://localhost:8081");
 
         const startHTML = '<button class="start" onclick="startTimer()">Start</button>';
         const stopHTML = '<button class="stop" onclick="stopTimer()">Stop</button>';
@@ -73,7 +72,7 @@
         let timerInterval;
         let fetchInterval;
         let timeLeft = 0; // Why? idk
-        let timerRunning = false;
+        let clientTimerRunning = false;
 
         function updateTimer() {
             // format remaining time with hours
@@ -86,12 +85,24 @@
 
         }
 
-        function getUpdate(timer,  running) {
+        function timerInit(timer, timerRunning) {
             timeLeft = timer;
-            if (running && !timerRunning) {
+            if (timerRunning && !clientTimerRunning) {
                 startTimer();
             }
-            if (!running && timerRunning) {
+            if (!timerRunning && clientTimerRunning) {
+                stopTimer();
+            }
+            updateTimer();
+        }
+
+        function getUpdate(callback) {
+            const { time, timerRunning } = callback;
+            timeLeft = time;
+            if (timerRunning && !clientTimerRunning) {
+                startTimer();
+            }
+            if (!timerRunning && clientTimerRunning) {
                 stopTimer();
             }
             if (timerRunning) updateTimer();
@@ -102,21 +113,21 @@
         }
 
         function startTimer() {
-            timerRunning = true;
+            clientTimerRunning = true;
             document.getElementById("controls").innerHTML = stopHTML;
             timerInterval = setInterval(updateTimer, 1000);
-            fetchInterval = setInterval(() => socket.emit('timeUpdate', getUpdate), 30000);
+            fetchInterval = setInterval(() => socket.emit('timeUpdate', updateTimer), 30000);
             socket.emit('resumeTimer');
         }
 
         function stopTimer() {
-            timerRunning = false;
+            clientTimerRunning = false;
             document.getElementById("controls").innerHTML = startHTML;
             clearInterval(timerInterval);
             socket.emit("stopTimer");
         }
 
-        socket.on('timerInit', getUpdate);
+        socket.on('timerInit', timerInit);
 
         socket.on('addTime', (time) => {
             timeLeft += time;
