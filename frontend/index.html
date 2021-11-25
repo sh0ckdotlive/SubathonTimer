@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Subathon Timer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
+    <style>
+    body {
+      background-color: #000000;
+      color: #ffffff;
+    }
+    h1 {
+        font-weight: bold;
+        font-family: "Roboto";
+    }
+    button.start {
+        background-color: #4CAF50;
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        font-family: "Roboto";
+        margin: 4px 2px;
+        cursor: pointer;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+    }
+    /* Red Rounded Button */
+    button.stop {
+        background-color: transparent;
+        border: none;
+        color: transparent;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        font-family: "Roboto";
+        margin: 4px 2px;
+        cursor: pointer;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+    }
+    button.stop:hover {
+        background-color: #f44336;
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        font-family: "Roboto";
+        margin: 4px 2px;
+        cursor: pointer;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+    }
+    </style>
+    <script src="socket.io.min.js"></script>
+    <script>
+
+        const socket = io();
+
+        const startHTML = '<button class="start" onclick="startTimer()">Start</button>';
+        const stopHTML = '<button class="stop" onclick="stopTimer()">Stop</button>';
+
+        let timerInterval;
+        let fetchInterval;
+        let timeLeft = 0; // Why? idk
+        let timerRunning = false;
+
+        function updateTimer() {
+            // format remaining time with hours
+            let hours = Math.floor(timeLeft / 3600);
+            let minutes = Math.floor((timeLeft % 3600) / 60);
+            let seconds = timeLeft % 60;
+
+            document.getElementById("timer").innerHTML = `${hours}:${toDoubleDigits(minutes)}:${toDoubleDigits(seconds)}`;
+            if (timeLeft > 0) timeLeft--;
+
+        }
+
+        function getUpdate(timer,  running) {
+            timeLeft = timer;
+            if (running && !timerRunning) {
+                startTimer();
+            }
+            if (!running && timerRunning) {
+                stopTimer();
+            }
+            if (timerRunning) updateTimer();
+        }
+
+        function toDoubleDigits(number) {
+            return ("0" + number).slice(-2);
+        }
+
+        function startTimer() {
+            timerRunning = true;
+            document.getElementById("controls").innerHTML = stopHTML;
+            timerInterval = setInterval(updateTimer, 1000);
+            fetchInterval = setInterval(() => socket.emit('timeUpdate', getUpdate), 30000);
+            socket.emit('resumeTimer');
+        }
+
+        function stopTimer() {
+            timerRunning = false;
+            document.getElementById("controls").innerHTML = startHTML;
+            clearInterval(timerInterval);
+            socket.emit("stopTimer");
+        }
+
+        socket.on('timerInit', getUpdate);
+
+        socket.on('addTime', (time) => {
+            timeLeft += time;
+            updateTimer();
+        });
+
+
+    </script>
+</head>
+<body>
+  <h1 id="timer">0:00:00</h1>
+  <div id="controls">
+      <button class="start" onclick="startTimer()">Start</button>
+  </div>
+</body>
+</html>
