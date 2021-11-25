@@ -1,7 +1,9 @@
 import express = require('express');
 import bodyParser = require('body-parser');
-import { Server } from "socket.io";
+import {Server, Socket} from "socket.io";
 import { timer as timerSettings } from '../../settings.json' ;
+import {Client} from "socket.io/dist/client";
+import {DefaultEventsMap} from "socket.io/dist/typed-events";
 
 const io = new Server()
 
@@ -21,11 +23,9 @@ let handledMessageIds: string[] = [];
 let timer = timerSettings.start;
 let totalTime = timerSettings.start;
 let timerRunning = false;
+let timerInterval: NodeJS.Timer;
 
-let giftedSubs = 0;
-let giftedTimer = 0;
-let giftedInterval: NodeJS.Timer;
-let giftedTimerRunning = false;
+let connectedClients: Socket<DefaultEventsMap, DefaultEventsMap>[] = [];
 
 app.post('/eventsub', jsonParser, (req, res) => {
     // We've already handled this message, we don't need to do it again.
@@ -52,6 +52,9 @@ app.post('/eventsub', jsonParser, (req, res) => {
             case "channel.cheer":
                 handleCheer(req.body);
                 break;
+            case "channel.subscription.gift":
+                handleGift(req.body);
+                break;
             case "channel.subscription.message":
             case "channel.subscribe":
                 handleSub(req.body);
@@ -73,11 +76,40 @@ app.post('/eventsub', jsonParser, (req, res) => {
 });
 
 io.on('connection', client => {
+    connectedClients.push(client);
     console.log(`New client connected with id ${client.id}.`)
     client.emit('timerInit', timer, timerRunning);
 
-    client.on('stopTimer', () => timerRunning = false)
-    client.on('resumeTimer', () => timerRunning = true)
+    client.on('stopTimer', () => {
+        if (timerRunning) {
+            clearInterval(timerInterval);
+            timerRunning = false;
+        }
+    })
+    client.on('resumeTimer', () => {
+        if (!timerRunning) {
+            timerInterval = setInterval(() => {
+                timer--;
+                if (timer === 0) {
+                    clearInterval(timerInterval);
+                    timerRunning = false;
+                    client.emit("timerEnd");
+                }
+            }, 1000);
+            timerRunning = true;
+        }
+    })
+    client.on('timeUpdate', (callback) => {
+        callback({
+            time: timer,
+            timerRunning: timerRunning
+        })
+    })
+})
+
+io.on("disconnect", client => {
+    connectedClients = connectedClients.filter(c => c.id !== client.id);
+    console.log(`Client with id ${client.id} disconnected.`)
 })
 
 io.listen(8081);
@@ -96,31 +128,17 @@ function handleFollow(body: any) {
     addTime(timerSettings.follow);
 }
 
+function handleGift(body: any) {
+    let total = body.event.total;
+    console.log(`${body.event.user_login} gifted ${total} sub(s)!`);
+    // @ts-ignore
+    addTime(total >= 5 ? timerSettings.subs.gifted[body.event.tier] * total : timerSettings.subs[body.event.tier] );
+}
+
 function handleSub(body: any) {
-    if (body.event.is_gift) {
-        console.log(`${body.event.user_login} has been gifted a sub!`);
-        giftedSubs++;
-        giftedTimer = 0.1;
-        if (!giftedTimerRunning) {
-            giftedTimerRunning = true;
-            giftedInterval = setInterval(() => {
-                giftedTimer -= 0.05;
-                if (giftedTimer <= 0) {
-                    // @ts-ignore
-                    addTime(giftedSubs >= 5 ? timerSettings.subs.gifted[body.event.tier] * giftedSubs : timerSettings.subs[body.event.tier] * giftedSubs);
-                    console.log(`Subs added: ${giftedSubs}`)
-                    console.log(timer);
-                    giftedTimerRunning = false;
-                    giftedSubs = 0;
-                    clearInterval(giftedInterval);
-                }
-            }, 50)
-        }
-    } else {
-        console.log(`${body.event.user_login} just subscribed!`);
-        // @ts-ignore
-        addTime(timerSettings.subs[body.event.tier]);
-    }
+    console.log(body.event.is_gift ? `${body.event.user_login} has been gifted a subscription!` : `${body.event.user_login} just subscribed!`);
+    // @ts-ignore
+    addTime(body.event.is_gift ? 0 : timerSettings.subs[body.event.tier]);
 }
 
 function handleReward(body: any) {
@@ -139,4 +157,6 @@ function addTime(time: number) {
 
     timer += time;
     totalTime += time;
+
+    connectedClients.forEach(c => c.emit('addTime', time));
 }
