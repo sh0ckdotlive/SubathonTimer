@@ -173,15 +173,3 @@ function addTime(time: number) {
 
     connectedClients.forEach(c => c.emit('addTime', time));
 }
-
-
-
-
-
-
-
-// -C user inputs time
-// -> addTime
-//   -S addTime()
-//     <- addTime
-//   -C updateTimer()
