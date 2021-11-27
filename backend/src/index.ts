@@ -115,6 +115,9 @@ io.on('connection', client => {
             timerRunning: timerRunning
         })
     })
+    client.on('addTime', (time) => {
+        addTime(time);
+    })
 })
 
 io.on("disconnect", client => {
