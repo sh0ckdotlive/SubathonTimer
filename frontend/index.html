@@ -27,6 +27,7 @@
         font-family: "Roboto";
         margin: 4px 2px;
         cursor: pointer;
+        width: 135px;
         -webkit-transition-duration: 0.4s; /* Safari */
         transition-duration: 0.4s;
     }
@@ -43,6 +44,7 @@
         font-family: "Roboto";
         margin: 4px 2px;
         cursor: pointer;
+        width: 135px;
         -webkit-transition-duration: 0.4s; /* Safari */
         transition-duration: 0.4s;
     }
@@ -58,8 +60,79 @@
         font-family: "Roboto";
         margin: 4px 2px;
         cursor: pointer;
+        width: 135px;
         -webkit-transition-duration: 0.4s; /* Safari */
         transition-duration: 0.4s;
+    }
+    button.add {
+        background-color: transparent;
+        border: none;
+        color: transparent;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        font-family: "Roboto";
+        margin: 4px 2px;
+        cursor: pointer;
+        width: 135px;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+    }
+    button.add:hover {
+        background-color: transparent;
+        border: 1px solid #f44336;
+        border-radius: 10px;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        font-family: "Roboto";
+        margin: 4px 2px;
+        cursor: pointer;
+        width: 135px;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+    }
+    button.send {
+        background-color: transparent;
+        border: 1px solid #4CAF50;
+        border-radius: 10px;
+        color: white;
+        padding: 5px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        font-family: "Roboto";
+        margin: 4px 2px;
+        cursor: pointer;
+        width: 135px;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+    }
+    button.send:hover {
+        background-color: #4CAF50;
+        border: 1px solid #4CAF50;
+        border-radius: 10px;
+        color: white;
+        padding: 5px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        font-family: "Roboto";
+        margin: 4px 2px;
+        cursor: pointer;
+        width: 135px;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+    }
+    input.timeInput {
+        width: 135px;
     }
     </style>
     <script src="socket.io.min.js"></script>
@@ -68,6 +141,10 @@
 
         const startHTML = '<button class="start" onclick="startTimer()">Start</button>';
         const stopHTML = '<button class="stop" onclick="stopTimer()">Stop</button>';
+
+        const addHTML = '<button class="add" onclick="showAddTime()">Add Time</button>';
+        const sendHTML = '<input type="number" class="timeInput" id="sendTime" placeholder="Enter time to add"><br>' +
+            '<button class="send" onclick="sendTime()">Send</button>';
 
         let timerInterval;
         let fetchInterval;
@@ -127,6 +204,20 @@
             socket.emit("stopTimer");
         }
 
+        function showAddTime() {
+            document.getElementById("addTime").innerHTML = sendHTML;
+        }
+
+        function sendTime() {
+            let time = document.getElementById("sendTime").value;
+            if (time === "") {
+                document.getElementById("addTime").innerHTML = addHTML;
+                return;
+            }
+            socket.emit("addTime", parseInt(time));
+            document.getElementById("addTime").innerHTML = addHTML;
+        }
+
         socket.on('timerInit', timerInit);
 
         socket.on('addTime', (time) => {
@@ -138,9 +229,13 @@
     </script>
 </head>
 <body>
-  <h1 id="timer">0:00:00</h1>
-  <div id="controls">
+    <h1 id="timer">0:00:00</h1>
+    <div id="controls">
       <button class="start" onclick="startTimer()">Start</button>
-  </div>
+    </div>
+    <div id="addTime">
+        <button class="add" onclick="showAddTime()">Add time</button>
+    </div>
+
 </body>
 </html>
