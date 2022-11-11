@@ -61,23 +61,23 @@ app.post('/eventsub', jsonParser, (req, res) => {
         switch (req.body.subscription.type) {
             case "channel.cheer":
                 handleCheer(req.body);
-                break;
+            break;
             case "channel.subscription.gift":
                 handleGift(req.body);
-                break;
+            break;
             case "channel.subscription.message":
-            case "channel.subscribe":
+                case "channel.subscribe":
                 handleSub(req.body);
-                break;
+            break;
             case "channel.channel_points_custom_reward_redemption.add":
                 handleReward(req.body);
-                break;
+            break;
             case "channel.follow":
                 handleFollow(req.body);
-                break;
+            break;
             default:
                 console.log(`Unknown/unhandled subscription type: ${req.body.subscription.type}`);
-                break;
+            break;
         }
 
         handledMessageIds.push(<string>req.headers[MESSAGE_ID]);
